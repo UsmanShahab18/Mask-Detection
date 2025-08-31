@@ -8,8 +8,8 @@ import os
 # Define constants
 IMG_SIZE = 150
 BATCH_SIZE = 32
-EPOCHS = 10
-DATA_DIR = 'Dataset' # The main folder name
+EPOCHS = 50
+DATA_DIR = 'Dataset'
 
 # Create data generators for training and validation
 train_datagen = ImageDataGenerator(
@@ -79,9 +79,10 @@ history = model.fit(
     validation_steps=validation_generator.samples // BATCH_SIZE
 )
 
-# Save the trained model in H5 format
+# Save the trained model in Keras format, which includes the training configuration
+# Use save_format='tf' as it is the recommended format for newer TensorFlow versions
 try:
-    model.save("mymodel.h5")
+    model.save("mymodel.h5", save_format='h5')
     print("Model saved as mymodel.h5")
 except Exception as e:
     print(f"Error saving model: {e}")
