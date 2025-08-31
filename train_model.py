@@ -10,7 +10,7 @@ from tensorflow.keras.optimizers import Adam
 # Define constants
 IMG_SIZE = 150
 BATCH_SIZE = 32
-EPOCHS = 50
+EPOCHS = 20
 DATA_DIR = 'Dataset'
 
 # Data generators
