@@ -42,6 +42,7 @@ try:
 
 except Exception as e:
     print(f"Error loading model or class labels: {e}")
+    # We exit here because the app cannot function without a model
     exit()
 
 # ==============================
@@ -90,6 +91,7 @@ def generate_self_signed_cert(cert_file, key_file):
         f.write(cert.public_bytes(serialization.Encoding.PEM))
 
 # Ensure cert.pem and key.pem exist for HTTPS
+# The check below is for local development only and will not run on Render
 if not os.path.exists("cert.pem") or not os.path.exists("key.pem"):
     print("Generating self-signed SSL certificate...")
     generate_self_signed_cert("cert.pem", "key.pem")
@@ -111,8 +113,7 @@ def detect():
         data = request.get_json()
         image_data = data['image']
         
-        # FIX: Check if the string contains a comma before splitting.
-        # This prevents the "IndexError: list index out of range" if the data URI header is missing.
+        # Check if the string contains a comma before splitting.
         if ',' in image_data:
             image_bytes = base64.b64decode(image_data.split(',')[1])
         else:
@@ -148,10 +149,16 @@ def detect():
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)})
 
+@app.route('/health')
+def health_check():
+    """A simple health check endpoint."""
+    return jsonify({"status": "ok", "message": "App is running"})
+
 # ==============================
 # Run App
 # ==============================
 if __name__ == '__main__':
     local_ip = get_local_ip()
-    print(f" * Running on https://{local_ip}:5000")
-    app.run(debug=False, host='0.0.0.0', port=5000, ssl_context=('cert.pem', 'key.pem'))
+    print(f" * Running on https://{local_ip}:5000 (Local Dev Server)")
+    # This is for local development only. Render uses Gunicorn.
+    app.run(debug=True, host='0.0.0.0', port=5000, ssl_context=('cert.pem', 'key.pem'))
