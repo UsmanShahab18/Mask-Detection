@@ -158,7 +158,15 @@ def health_check():
 # Run App
 # ==============================
 if __name__ == '__main__':
+    # Detect environment
+    port = int(os.environ.get("PORT", 5000))  # Render provides PORT, default=5000 for local
     local_ip = get_local_ip()
-    print(f" * Running on https://{local_ip}:5000 (Local Dev Server)")
-    # This is for local development only. Render uses Gunicorn.
-    app.run(debug=True, host='0.0.0.0', port=5000, ssl_context=('cert.pem', 'key.pem'))
+
+    if os.environ.get("RENDER"):  
+        # Running on Render (no SSL, just HTTP)
+        print(f" * Running on http://0.0.0.0:{port} (Render)")
+        app.run(debug=False, host="0.0.0.0", port=port)
+    else:
+        # Running locally (with self-signed SSL for webcam)
+        print(f" * Running on https://{local_ip}:{port} (Local Dev Server)")
+        app.run(debug=True, host="0.0.0.0", port=port, ssl_context=('cert.pem', 'key.pem'))
