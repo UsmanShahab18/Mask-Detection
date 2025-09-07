@@ -6,12 +6,10 @@ from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import rsa
 from datetime import datetime, timedelta
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing.image import img_to_array
-from PIL import Image
+import cv2
 import numpy as np
 import base64
-from io import BytesIO
+from ultralytics import YOLO
 
 # ==============================
 # Flask App
@@ -19,31 +17,23 @@ from io import BytesIO
 app = Flask(__name__)
 
 # ==============================
-# Load Model and Class Labels
+# Load YOLOv8 Model
 # ==============================
 model = None
-class_labels = None
-IMG_SIZE = 150 # Must match the size used in train_model.py
-
 try:
-    # Load the trained model
-    model = load_model("mymodel.h5")
-    print("Model loaded successfully.")
-    
-    # Get the class labels from the model's metadata (if available) or assume alphabetical order
-    if hasattr(model, 'class_indices'):
-        class_indices = model.class_indices
-        class_labels = sorted(class_indices, key=class_indices.get)
-        print("Class labels loaded from model metadata.")
-    else:
-        # Fallback to the known alphabetical order from the training script
-        class_labels = ["mask", "no_mask"]
-        print("Using default class labels: ['mask', 'no_mask']")
+    # FIXED PATH (your model is inside runs/detect/train2/weights/)
+    model_path = os.path.join("runs", "detect", "train2", "weights", "best.pt")
+    model = YOLO(model_path)
+    print(f"YOLOv8 model loaded from {model_path}")
+
+    # Class labels from training
+    class_labels = model.names
+    print("Class labels:", class_labels)
 
 except Exception as e:
-    print(f"Error loading model or class labels: {e}")
-    # We exit here because the app cannot function without a model
+    print(f"Error loading YOLOv8 model: {e}")
     exit()
+
 
 # ==============================
 # Helper Functions
@@ -59,11 +49,9 @@ def get_local_ip():
     except:
         return '127.0.0.1'
 
+
 def generate_self_signed_cert(cert_file, key_file):
-    """
-    Generates a self-signed SSL certificate and private key.
-    This is required for the webcam to work on a secure connection (https).
-    """
+    """Generates a self-signed SSL certificate and private key."""
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     with open(key_file, "wb") as f:
         f.write(key.private_bytes(
@@ -71,6 +59,7 @@ def generate_self_signed_cert(cert_file, key_file):
             format=serialization.PrivateFormat.TraditionalOpenSSL,
             encryption_algorithm=serialization.NoEncryption()
         ))
+
     subject = issuer = x509.Name([
         x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
         x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "California"),
@@ -85,16 +74,20 @@ def generate_self_signed_cert(cert_file, key_file):
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.utcnow())
         .not_valid_after(datetime.utcnow() + timedelta(days=365))
-        .add_extension(x509.SubjectAlternativeName([x509.DNSName("localhost"), x509.IPAddress(get_local_ip())]), critical=False)
+        .add_extension(x509.SubjectAlternativeName([
+            x509.DNSName("localhost"),
+            x509.IPAddress(get_local_ip())
+        ]), critical=False)
         .sign(key, hashes.SHA256()))
     with open(cert_file, "wb") as f:
         f.write(cert.public_bytes(serialization.Encoding.PEM))
 
+
 # Ensure cert.pem and key.pem exist for HTTPS
-# The check below is for local development only and will not run on Render
 if not os.path.exists("cert.pem") or not os.path.exists("key.pem"):
     print("Generating self-signed SSL certificate...")
     generate_self_signed_cert("cert.pem", "key.pem")
+
 
 # ==============================
 # Routes
@@ -104,65 +97,69 @@ def index():
     """Renders the main HTML page."""
     return render_template('index.html')
 
+
 @app.route('/detect', methods=['POST'])
 def detect():
-    """
-    Receives an image via POST request, runs the model prediction, and returns the result.
-    """
+    """Receives an image via POST request, runs YOLOv8 prediction, and returns the result."""
     try:
         data = request.get_json()
         image_data = data['image']
-        
-        # Check if the string contains a comma before splitting.
+
         if ',' in image_data:
             image_bytes = base64.b64decode(image_data.split(',')[1])
         else:
             image_bytes = base64.b64decode(image_data)
-            
-        image = Image.open(BytesIO(image_bytes)).convert("RGB")
-        
-        image = image.resize((IMG_SIZE, IMG_SIZE))
-        img_array = img_to_array(image) / 255.0
-        img_array = np.expand_dims(img_array, axis=0)
 
-        preds = model.predict(img_array)
-        
-        if not isinstance(preds, np.ndarray) or preds.size == 0:
-            return jsonify({"status": "error", "message": "Model prediction returned invalid output."})
+        # Convert image bytes to numpy array
+        np_arr = np.frombuffer(image_bytes, np.uint8)
+        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
-        # For binary classification with sigmoid, the output is a single value
-        if preds[0][0] >= 0.5:
-            prediction = "no_mask"
-            confidence = float(preds[0][0])
+        # Run YOLOv8 inference
+        results = model.predict(source=frame, verbose=False, conf=0.25, imgsz=320)[0]
+
+        detections = []
+        for box in results.boxes:
+            class_id = int(box.cls[0])
+            label = class_labels[class_id]
+            confidence = float(box.conf[0])
+            detections.append({
+                "label": label,
+                "confidence": confidence
+            })
+
+        if detections:
+            best_detection = max(detections, key=lambda d: d['confidence'])
+            return jsonify({
+                "status": "success",
+                "prediction": best_detection['label'],
+                "confidence": best_detection['confidence']
+            })
         else:
-            prediction = "mask"
-            confidence = 1.0 - float(preds[0][0])
-            
-        return jsonify({
-            "status": "success",
-            "prediction": prediction,
-            "confidence": confidence
-        })
+            return jsonify({
+                "status": "success",
+                "prediction": "none",
+                "confidence": 0.0
+            })
 
     except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)})
 
+
 @app.route('/health')
 def health_check():
-    """A simple health check endpoint."""
     return jsonify({"status": "ok", "message": "App is running"})
+
 
 # ==============================
 # Run App
 # ==============================
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))  # 5000 for local, $PORT on Render
+    port = int(os.environ.get("PORT", 5000))
     if os.environ.get("RENDER"):
         print(f" * Running on http://0.0.0.0:{port} (Render)")
         app.run(debug=False, host="0.0.0.0", port=port)
     else:
         print(f" * Running on https://127.0.0.1:{port} (Local Dev Server)")
         app.run(debug=True, host="0.0.0.0", port=port, ssl_context=('cert.pem', 'key.pem'))
-
