@@ -1,0 +1,35 @@
+# ===== Datasets & large artifacts (DO NOT COMMIT) =====
+# GitHub rejects files > 100 MB. Keep raw data out of the repo.
+Dataset/
+yolov8_dataset/
+*.zip
+data/
+
+# ===== Training runs (keep only the final weights, see below) =====
+runs/detect/predict*/
+runs/detect/train/
+# We keep the trained weights so the app runs after clone:
+!runs/detect/train2/
+!runs/detect/train2/weights/
+!runs/detect/train2/weights/best.pt
+runs/detect/train2/weights/last.pt
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.Python
+
+# ===== SSL certs (auto-generated on first run) =====
+cert.pem
+key.pem
+
+# ===== Editor / OS =====
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

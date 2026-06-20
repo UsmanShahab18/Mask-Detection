@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Mask Detection · Packages Limited</title>
+    <meta name="description" content="Real-time face mask compliance detection powered by YOLOv8.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="app">
+        <!-- ===== Header ===== -->
+        <header class="header">
+            <div class="brand">
+                <span class="brand-mark">😷</span>
+                <div>
+                    <h1>Face Mask Detection</h1>
+                    <p class="subtitle">Real-time mask-compliance monitoring · YOLOv8</p>
+                </div>
+            </div>
+            <a class="badge-link" href="https://github.com" target="_blank" rel="noopener">AI Internship · Packages Ltd</a>
+        </header>
+
+        <main class="layout">
+            <!-- ===== Detection panel ===== -->
+            <section class="panel stage-panel">
+                <div class="tabs" role="tablist">
+                    <button class="tab active" id="tab-live" role="tab">📹 Live Camera</button>
+                    <button class="tab" id="tab-upload" role="tab">🖼️ Upload Image</button>
+                </div>
+
+                <div class="stage">
+                    <video id="video" autoplay playsinline muted></video>
+                    <img id="uploadPreview" alt="Uploaded preview" hidden>
+                    <canvas id="overlay"></canvas>
+
+                    <div id="placeholder" class="placeholder">
+                        <div class="placeholder-icon">📷</div>
+                        <p>Camera is off</p>
+                        <span>Press <strong>Start Camera</strong> to begin detection</span>
+                    </div>
+
+                    <div id="statusPill" class="status-pill off">● Idle</div>
+                </div>
+
+                <!-- Live controls -->
+                <div class="controls" id="liveControls">
+                    <button id="startBtn" class="btn btn-primary">▶ Start Camera</button>
+                    <button id="stopBtn" class="btn btn-ghost" disabled>■ Stop</button>
+                    <button id="switchBtn" class="btn btn-ghost" disabled>⟳ Flip Camera</button>
+                </div>
+
+                <!-- Upload controls -->
+                <div class="controls" id="uploadControls" hidden>
+                    <label class="btn btn-primary">
+                        ⬆ Choose Image
+                        <input type="file" id="fileInput" accept="image/*" hidden>
+                    </label>
+                    <button id="clearBtn" class="btn btn-ghost" disabled>✕ Clear</button>
+                </div>
+            </section>
+
+            <!-- ===== Results panel ===== -->
+            <aside class="panel result-panel">
+                <h2 class="panel-title">Detection Result</h2>
+
+                <div id="verdict" class="verdict neutral">
+                    <span class="verdict-icon">⏳</span>
+                    <span class="verdict-text">Waiting…</span>
+                </div>
+
+                <div class="confidence">
+                    <div class="confidence-head">
+                        <span>Confidence</span>
+                        <span id="confValue">0%</span>
+                    </div>
+                    <div class="meter"><div id="meterFill" class="meter-fill"></div></div>
+                </div>
+
+                <div id="recommendation" class="recommendation">
+                    Start the camera or upload an image to check mask compliance.
+                </div>
+
+                <div class="legend">
+                    <h3>Detected classes</h3>
+                    <div class="legend-item"><span class="dot dot-ok"></span> Mask On</div>
+                    <div class="legend-item"><span class="dot dot-warn"></span> Improper Mask</div>
+                    <div class="legend-item"><span class="dot dot-bad"></span> No Mask</div>
+                </div>
+
+                <div class="stats">
+                    <div class="stat"><span id="fpsValue">0</span><small>checks / sec</small></div>
+                    <div class="stat"><span id="countValue">0</span><small>faces found</small></div>
+                </div>
+            </aside>
+        </main>
+
+        <footer class="footer">
+            Built with YOLOv8 · Flask · OpenCV — AI Internship Project @ Packages Limited
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

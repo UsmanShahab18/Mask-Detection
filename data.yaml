@@ -1,0 +1,13 @@
+# Path to the dataset root directory (relative to this file)
+path: ./yolov8_dataset
+
+# Image directories for training, validation, and testing
+train: train/images
+val: val/images
+test: test/images
+
+# Class names
+names:
+  0: mask
+  1: no_mask
+  2: improper_mask
